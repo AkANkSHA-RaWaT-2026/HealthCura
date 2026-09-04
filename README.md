@@ -7,7 +7,7 @@
 - Backend: FastAPI + Python 3.10
 - Database: PostgreSQL (Supabase)
 - OCR: PaddleOCR
-- LLM: Ollama + Llama 3.2 (RAG via LangChain + ChromaDB)
+- LLM: Ollama + Llama 3.2 (RAG via LangChain + pgvector)
 
 ## Project Structure
 - /backend - FastAPI backend
