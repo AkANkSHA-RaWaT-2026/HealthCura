@@ -55,3 +55,10 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"user_id": user.id, "role": user.role})
 
     return Token(access_token=access_token, user=user)
+
+from app.core.dependencies import get_current_user
+
+@router.get("/me", response_model=UserResponse)
+def get_my_profile(current_user: User = Depends(get_current_user)):
+    """Returns the logged-in user's own profile. Requires a valid token."""
+    return current_user
