@@ -1,5 +1,5 @@
-// frontend/src/pages/DashboardPage.jsx
 import { useAuth } from '../hooks/useAuth';
+import { Link } from 'react-router-dom';
 
 function DashboardPage() {
   const { user, logoutUser } = useAuth();
@@ -19,6 +19,9 @@ function DashboardPage() {
         >
           Log out
         </button>
+        <Link to="/upload" className="text-blue-600 hover:underline mr-4">
+          My Documents
+        </Link>
       </div>
     </div>
   );

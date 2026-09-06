@@ -3,6 +3,8 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import { useAuth } from './hooks/useAuth';
+import UploadPage from './pages/UploadPage';
+
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -32,6 +34,14 @@ function App() {
         }
       />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/upload" 
+        element={
+          <ProtectedRoute> 
+            <UploadPage /> 
+            </ProtectedRoute>
+          }
+        />
     </Routes>
   );
 }
