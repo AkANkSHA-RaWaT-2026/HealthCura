@@ -1,17 +1,18 @@
 # HealthCura - Medical Document Intelligence System
 
-7th semester engineering project. AI-powered medical document analysis platform.
+7th semester engineering project. An AI-powered system that helps patients digitize, understand, and act on medical documents (lab reports, prescriptions, discharge summaries) using OCR and LLMs.
 
 ## Tech Stack
-- Frontend: React 18 + Tailwind CSS
+- Frontend: React 18 + Tailwind CSS v4 + Vite
 - Backend: FastAPI + Python 3.10
-- Database: PostgreSQL (Supabase)
-- OCR: PaddleOCR
-- LLM: Ollama + Llama 3.2 (RAG via LangChain + pgvector)
+- Database: PostgreSQL (Supabase) + Alembic migrations
+- File Storage: Cloudinary
+- OCR: EasyOCR + OpenCV + pdf2image/Poppler
+- Auth: JWT (python-jose) + bcrypt (passlib)
 
 ## Project Structure
-- /backend - FastAPI backend
-- /frontend - React frontend
+- `/backend` — FastAPI backend (API, database, OCR, business logic)
+- `/frontend` — React frontend (UI)
 
 ## Setup
 Under Development
