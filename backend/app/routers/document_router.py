@@ -9,10 +9,10 @@ from app.models.user import User
 from app.models.document import Document
 from app.schemas.document_schema import DocumentResponse
 from app.services.cloudinary_service import upload_file_to_cloudinary
+from app.services.ocr_service import extract_text_from_image_path, extract_text_from_pdf
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
-# Security limits - prevents abuse and keeps within Cloudinary free tier
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf"}
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -24,9 +24,11 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upload a medical document (image or PDF). Requires login."""
-
-    # Validate file extension
+    """
+    Upload a medical document (image or PDF), extract text via OCR,
+    and store both the file (Cloudinary) and extracted text (DB).
+    Requires login.
+    """
     _, extension = os.path.splitext(file.filename)
     extension = extension.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -35,7 +37,6 @@ async def upload_document(
             detail=f"File type not allowed. Accepted types: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
-    # Read file into memory to check size (FastAPI doesn't expose size upfront)
     file_content = await file.read()
     if len(file_content) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(
@@ -48,22 +49,27 @@ async def upload_document(
             detail="The uploaded file is empty.",
         )
 
-    # Save to a temp file - Cloudinary's SDK expects a file path, not raw bytes
+    tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp:
             tmp.write(file_content)
             tmp_path = tmp.name
+
+        # Run OCR first - if this fails, we don't want a half-saved document
+        if extension == ".pdf":
+            extracted_text = extract_text_from_pdf(tmp_path)
+        else:
+            extracted_text = extract_text_from_image_path(tmp_path)
 
         file_url = upload_file_to_cloudinary(tmp_path)
 
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to upload file. Please try again.",
+            detail="Unable to process the uploaded document. Please try a different file.",
         )
     finally:
-        # Always clean up the temp file, even if upload failed
-        if os.path.exists(tmp_path):
+        if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
 
     file_type = "pdf" if extension == ".pdf" else "image"
@@ -73,7 +79,8 @@ async def upload_document(
         original_filename=file.filename,
         file_url=file_url,
         file_type=file_type,
-        ocr_status="pending",
+        ocr_status="completed",
+        ocr_text=extracted_text,
     )
 
     db.add(new_document)
