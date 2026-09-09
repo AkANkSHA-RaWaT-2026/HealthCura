@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth_router, document_router
+from app.routers import auth_router, document_router, summary_router
 
 app = FastAPI(
     title="HealthCura API",
@@ -10,6 +10,7 @@ app = FastAPI(
 
 app.include_router(auth_router.router)
 app.include_router(document_router.router)
+app.include_router(summary_router.router)
 
 # Allows the React dev server (different port) to call this API
 app.add_middleware(

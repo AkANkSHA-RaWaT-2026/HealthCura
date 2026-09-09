@@ -11,6 +11,7 @@ class DocumentResponse(BaseModel):
     file_type: str
     ocr_status: str
     ocr_text: Optional[str] = None
+    ai_summary: Optional[str] = None
     document_type: Optional[str] = None
     created_at: datetime
 
