@@ -1,4 +1,3 @@
-# backend/app/models/health_record.py
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -22,4 +21,3 @@ class HealthRecord(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     owner = relationship("User", backref="health_records")
-    document = relationship("Document", backref="health_records")
