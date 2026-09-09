@@ -18,7 +18,8 @@ class Document(Base):
 
     ocr_status = Column(String, nullable=False, default="pending")  # pending, processing, completed, failed
     ocr_text = Column(Text, nullable=True)               # raw extracted text
-
+    ai_summary = Column(Text, nullable=True)
+    
     document_type = Column(String, nullable=True)        # e.g. "lab_report", "prescription" (set later, Feature 3)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
