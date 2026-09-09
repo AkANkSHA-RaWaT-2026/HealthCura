@@ -100,7 +100,7 @@ async def upload_document(
             unit=metric["unit"],
             recorded_date=metric["recorded_date"],
         )
-    db.add(health_record)
+        db.add(health_record)
     db.commit()
 
     return new_document
