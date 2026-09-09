@@ -1,7 +1,7 @@
 // frontend/src/pages/UploadPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { uploadDocument, getMyDocuments } from '../services/documentService';
+import { uploadDocument, getMyDocuments, generateSummary, deleteDocument } from '../services/documentService';
 
 const ALLOWED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf'];
 const MAX_SIZE_MB = 10;
@@ -11,6 +11,8 @@ function UploadPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [generatingId, setGeneratingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -26,7 +28,7 @@ function UploadPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount, setState only after await resolves
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount, setState only happens after await resolves
     loadDocuments();
   }, []);
 
@@ -60,6 +62,37 @@ function UploadPage() {
     e.preventDefault();
     setIsDragging(false);
     processFile(e.dataTransfer.files[0]);
+  };
+
+  const handleGenerateSummary = async (documentId) => {
+    setError('');
+    setGeneratingId(documentId);
+    try {
+      const updatedDoc = await generateSummary(documentId);
+      setDocuments((prev) =>
+        prev.map((doc) => (doc.id === documentId ? updatedDoc : doc))
+      );
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(detail || 'Unable to generate summary.');
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
+  const handleDelete = async (documentId) => {
+    if (!window.confirm('Delete this document? This cannot be undone.')) return;
+
+    setDeletingId(documentId);
+    try {
+      await deleteDocument(documentId);
+      setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(detail || 'Unable to delete document.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -114,11 +147,36 @@ function UploadPage() {
                 <div key={doc.id} className="py-4">
                   <div className="flex justify-between items-baseline">
                     <p className="text-ink font-medium">{doc.original_filename}</p>
-                    <p className="text-xs text-ink-muted">
-                      {new Date(doc.created_at).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs text-ink-muted">
+                        {new Date(doc.created_at).toLocaleDateString()}
+                      </p>
+                      <button
+                        onClick={() => handleDelete(doc.id)}
+                        disabled={deletingId === doc.id}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                      >
+                        {deletingId === doc.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
-                  {doc.ocr_text && (
+
+                  {doc.ai_summary ? (
+                    <div className="mt-2 bg-teal/5 border-l-2 border-teal pl-3 py-2">
+                      <p className="text-xs text-teal font-medium mb-1">AI Summary</p>
+                      <p className="text-sm text-ink">{doc.ai_summary}</p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleGenerateSummary(doc.id)}
+                      disabled={generatingId === doc.id}
+                      className="mt-2 text-sm text-teal hover:text-teal-deep disabled:opacity-50"
+                    >
+                      {generatingId === doc.id ? 'Generating summary...' : 'Generate summary'}
+                    </button>
+                  )}
+
+                  {doc.ocr_text && !doc.ai_summary && (
                     <p className="text-sm text-ink-muted mt-1 line-clamp-2">
                       {doc.ocr_text.slice(0, 180)}
                     </p>
