@@ -10,6 +10,8 @@ from app.models.document import Document
 from app.schemas.document_schema import DocumentResponse
 from app.services.cloudinary_service import upload_file_to_cloudinary
 from app.services.ocr_service import extract_text_from_image_path, extract_text_from_pdf
+from app.models.health_record import HealthRecord
+from app.services.health_extraction_service import extract_health_metrics
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -87,7 +89,23 @@ async def upload_document(
     db.commit()
     db.refresh(new_document)
 
+     # Best-effort extraction of structured health metrics from OCR text
+    extracted_metrics = extract_health_metrics(extracted_text)
+    for metric in extracted_metrics:
+        health_record = HealthRecord(
+            user_id=current_user.id,
+            document_id=new_document.id,
+            metric_name=metric["metric_name"],
+            value=metric["value"],
+            unit=metric["unit"],
+            recorded_date=metric["recorded_date"],
+        )
+    db.add(health_record)
+    db.commit()
+
     return new_document
+
+    
 
 
 @router.get("/", response_model=list[DocumentResponse])
