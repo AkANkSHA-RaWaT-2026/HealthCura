@@ -4,7 +4,7 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import { useAuth } from './hooks/useAuth';
 import UploadPage from './pages/UploadPage';
-
+import TimelinePage from './pages/TimelinePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -42,7 +42,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+      <Route 
+        path="/timeline" 
+        element={
+          <ProtectedRoute>
+            <TimelinePage />
+            </ProtectedRoute>
+          }
+        />
     </Routes>
+
   );
 }
 

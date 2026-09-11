@@ -12,6 +12,7 @@ from app.services.cloudinary_service import upload_file_to_cloudinary
 from app.services.ocr_service import extract_text_from_image_path, extract_text_from_pdf
 from app.models.health_record import HealthRecord
 from app.services.health_extraction_service import extract_health_metrics
+from app.services.reference_ranges import get_status
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -99,10 +100,11 @@ async def upload_document(
             value=metric["value"],
             unit=metric["unit"],
             recorded_date=metric["recorded_date"],
+            status=get_status(metric["metric_name"], metric["value"]),
         )
         db.add(health_record)
     db.commit()
-
+    
     return new_document
 
     

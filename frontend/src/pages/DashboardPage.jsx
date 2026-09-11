@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { getMyDocuments } from '../services/documentService';
 
 const upcomingFeatures = [
-  { name: 'Health Timeline', description: 'Track your vitals and lab trends over time' },
   { name: 'Ask HealthCura', description: 'Chat with your medical records' },
   { name: 'Discharge Summary', description: 'Generate a summary for your next visit' },
 ];
@@ -14,10 +13,10 @@ function DashboardPage() {
   const [documentCount, setDocumentCount] = useState(null);
 
   useEffect(() => {
-  getMyDocuments()
-    .then((docs) => setDocumentCount(docs.length))
-    .catch(() => setDocumentCount(0));
-}, []);
+    getMyDocuments()
+      .then((docs) => setDocumentCount(docs.length))
+      .catch(() => setDocumentCount(0));
+  }, []);
 
   const firstName = user?.full_name?.split(' ')[0];
   const hour = new Date().getHours();
@@ -58,6 +57,16 @@ function DashboardPage() {
               {documentCount === null ? '–' : documentCount}
             </span>
           </div>
+        </Link>
+
+        <Link
+          to="/timeline"
+          className="block bg-surface border border-line rounded-lg p-6 hover:border-teal transition-colors mt-4"
+        >
+          <h2 className="font-serif text-xl text-ink mb-1">Health Timeline</h2>
+          <p className="text-sm text-ink-muted">
+            Track your vitals and lab trends over time
+          </p>
         </Link>
 
         <div className="mt-6 space-y-px">

@@ -9,6 +9,7 @@ class HealthRecordResponse(BaseModel):
     metric_name: str
     value: float
     unit: Optional[str] = None
+    status: Optional[str] = None
     recorded_date: Optional[date] = None
     created_at: datetime
 

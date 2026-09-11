@@ -2,21 +2,31 @@ import re
 from datetime import datetime
 from typing import Optional
 
+# Flexible separator: matches whitespace, colons, dashes, parentheses -
+# handles "Glucose: 110", "Glucose (Total) 110", "Glucose\n110" etc.
+SEP = r"[\s():\-]*"
+
 # Each pattern: (metric_name, regex, default_unit)
-# Regex captures the numeric value; unit is captured if present, else we use the default.
-# These cover common formats seen in Indian lab reports (per project scope).
 METRIC_PATTERNS = [
-    ("Glucose", r"glucose\s*[:\-]?\s*(\d+\.?\d*)\s*(mg/dl|mg%)?", "mg/dL"),
-    ("Hemoglobin", r"h(?:a)?emoglobin\s*[:\-]?\s*(\d+\.?\d*)\s*(g/dl)?", "g/dL"),
-    ("Cholesterol", r"(?:total\s+)?cholesterol\s*[:\-]?\s*(\d+\.?\d*)\s*(mg/dl)?", "mg/dL"),
-    ("WBC", r"wbc\s*(?:count)?\s*[:\-]?\s*(\d+\.?\d*)\s*(/ul|cells/cumm|/cumm)?", "/uL"),
-    ("Platelets", r"platelets?\s*(?:count)?\s*[:\-]?\s*(\d+\.?\d*)\s*(/ul|lakhs?/cumm)?", "/uL"),
+    ("Glucose", rf"glucose{SEP}(\d+\.?\d*){SEP}(mg/dl|mg%)?", "mg/dL"),
+    ("Hemoglobin", rf"h(?:a)?emoglobin{SEP}(\d+\.?\d*){SEP}(g/dl)?", "g/dL"),
+    ("Total Cholesterol", rf"(?<!hdl\s)(?<!ldl\s)cholesterol{SEP}(?:total{SEP})?(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("HDL Cholesterol", rf"hdl(?:\s*cholesterol)?{SEP}(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("LDL Cholesterol", rf"ldl(?:\s*cholesterol)?{SEP}(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("Triglycerides", rf"tri[a-z]*rides{SEP}(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("WBC", rf"w(?:hite)?\s*b(?:lood)?\s*c(?:ells?)?\s*(?:count)?{SEP}\(?wbc\)?{SEP}(\d+\.?\d*)", "x10³/uL"),
+    ("RBC", rf"r(?:ed)?\s*b(?:lood)?\s*c(?:ells?)?\s*(?:count)?{SEP}\(?rbc\)?{SEP}(\d+\.?\d*)", "x10³/uL"),
+    ("Hematocrit", rf"h(?:a)?ematocrit{SEP}(\d+\.?\d*){SEP}(%)?", "%"),
+    ("Platelets", rf"platelets?{SEP}(?:count)?{SEP}(\d+\.?\d*)", "x10³/uL"),
+    ("BUN", rf"(?:blood\s*urea\s*nitrogen|bun){SEP}(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("Creatinine", rf"creatinine{SEP}(\d+\.?\d*){SEP}(mg/dl)?", "mg/dL"),
+    ("Sodium", rf"sodium{SEP}(\d+\.?\d*){SEP}(mmol/l)?", "mmol/L"),
+    ("Potassium", rf"potassium{SEP}(\d+\.?\d*){SEP}(mmol/l)?", "mmol/L"),
     ("Blood Pressure Systolic", r"(?:bp|blood\s+pressure)\s*[:\-]?\s*(\d+)\s*/\s*\d+", "mmHg"),
     ("Blood Pressure Diastolic", r"(?:bp|blood\s+pressure)\s*[:\-]?\s*\d+\s*/\s*(\d+)", "mmHg"),
-    ("Heart Rate", r"(?:heart\s+rate|pulse)\s*[:\-]?\s*(\d+)\s*(bpm)?", "bpm"),
+    ("Heart Rate", rf"(?:heart\s*rate|pulse){SEP}(\d+)", "bpm"),
 ]
 
-# Common date formats seen in medical documents
 DATE_PATTERNS = [
     r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
     r"(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})",
@@ -24,10 +34,7 @@ DATE_PATTERNS = [
 
 
 def extract_document_date(text: str) -> Optional[str]:
-    """
-    Attempts to find a date in the document text.
-    Returns an ISO date string (YYYY-MM-DD) or None if no date is confidently found.
-    """
+    """Attempts to find a date in the document text. Returns ISO date string or None."""
     for pattern in DATE_PATTERNS:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
@@ -43,11 +50,9 @@ def extract_document_date(text: str) -> Optional[str]:
 def extract_health_metrics(ocr_text: str) -> list[dict]:
     """
     Scans OCR text for known medical metric patterns and returns a list of
-    extracted metrics as dicts: {metric_name, value, unit, recorded_date}.
-
-    This is best-effort pattern matching, not guaranteed to catch every
-    format - real lab reports vary widely. Only high-confidence matches
-    (clear numeric value next to a recognized metric name) are returned.
+    extracted metrics. Best-effort pattern matching - real documents vary
+    widely in format, and OCR errors/typos in the source will cause some
+    metrics to be missed. This is an expected, documented limitation.
     """
     if not ocr_text:
         return []
@@ -63,7 +68,6 @@ def extract_health_metrics(ocr_text: str) -> list[dict]:
             except (ValueError, IndexError):
                 continue
 
-            # Use captured unit if the regex found one, else fall back to default
             unit = default_unit
             if match.lastindex and match.lastindex >= 2 and match.group(2):
                 unit = match.group(2)
