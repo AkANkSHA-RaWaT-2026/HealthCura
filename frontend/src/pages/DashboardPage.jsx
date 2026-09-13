@@ -69,6 +69,14 @@ function DashboardPage() {
           </p>
         </Link>
 
+        <Link
+          to="/chat"
+          className="block bg-surface border border-line rounded-lg p-6 hover:border-teal transition-colors mt-4"
+        >
+          <h2 className="font-serif text-xl text-ink mb-1">Ask HealthCura</h2>
+          <p className="text-sm text-ink-muted">Chat with your medical records</p>
+        </Link>
+
         <div className="mt-6 space-y-px">
           {upcomingFeatures.map((feature) => (
             <div

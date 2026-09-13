@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage';
 import { useAuth } from './hooks/useAuth';
 import UploadPage from './pages/UploadPage';
 import TimelinePage from './pages/TimelinePage';
+import ChatPage from './pages/ChatPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -35,23 +36,30 @@ function App() {
       />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route
-        path="/upload" 
+        path="/upload"
         element={
-          <ProtectedRoute> 
-            <UploadPage /> 
-            </ProtectedRoute>
-          }
-        />
-      <Route 
-        path="/timeline" 
+          <ProtectedRoute>
+            <UploadPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/timeline"
         element={
           <ProtectedRoute>
             <TimelinePage />
-            </ProtectedRoute>
-          }
-        />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
-
   );
 }
 
