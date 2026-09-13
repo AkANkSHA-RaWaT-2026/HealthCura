@@ -26,3 +26,4 @@ class Document(Base):
 
     owner = relationship("User", backref="documents")
     health_records = relationship("HealthRecord", cascade="all, delete-orphan")
+    document_chunks = relationship("DocumentChunk", cascade="all, delete-orphan")
