@@ -7,6 +7,7 @@ import sys
 from dotenv import load_dotenv
 from app.models.health_record import HealthRecord
 from app.models.document_chunk import DocumentChunk
+from app.models.chat_message import ChatMessage
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
