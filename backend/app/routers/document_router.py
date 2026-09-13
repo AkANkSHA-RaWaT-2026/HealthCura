@@ -2,6 +2,8 @@ import os
 import tempfile
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
+from app.models.document_chunk import DocumentChunk
+from app.services.embedding_service import chunk_text, embed_texts
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -104,7 +106,23 @@ async def upload_document(
         )
         db.add(health_record)
     db.commit()
-    
+
+        # Chunk and embed the document text for RAG chat retrieval
+    if extracted_text and extracted_text.strip():
+        chunks = chunk_text(extracted_text)
+        if chunks:
+            embeddings = embed_texts(chunks)
+            for chunk, embedding in zip(chunks, embeddings):
+                doc_chunk = DocumentChunk(
+                    user_id=current_user.id,
+                    document_id=new_document.id,
+                    chunk_text=chunk,
+                    embedding=embedding,
+                )
+                db.add(doc_chunk)
+            db.commit()
+
+    return new_document
     return new_document
 
     
