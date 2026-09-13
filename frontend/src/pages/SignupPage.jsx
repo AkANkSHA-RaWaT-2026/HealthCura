@@ -27,17 +27,14 @@ function SignupPage() {
 
     try {
       await signupApi(formData);
-      // Auto-login right after successful signup, so the user doesn't
-      // have to type their credentials twice in a row
       const loginData = await loginApi({
         email: formData.email,
         password: formData.password,
       });
       loginUser(loginData.access_token, loginData.user);
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       const detail = err.response?.data?.detail;
-      // FastAPI validation errors return an array of objects, not a plain string
       const message = Array.isArray(detail)
         ? detail.map((d) => d.msg).join(', ')
         : detail || 'Unable to create account. Please try again.';

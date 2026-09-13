@@ -1,4 +1,3 @@
-// frontend/src/pages/LoginPage.jsx
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login as loginApi } from '../services/authService';
@@ -21,7 +20,7 @@ function LoginPage() {
     try {
       const data = await loginApi({ email, password });
       loginUser(data.access_token, data.user);
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       const message = err.response?.data?.detail || 'Unable to log in. Please try again.';
       setError(message);

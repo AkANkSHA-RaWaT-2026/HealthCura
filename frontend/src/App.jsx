@@ -6,6 +6,7 @@ import { useAuth } from './hooks/useAuth';
 import UploadPage from './pages/UploadPage';
 import TimelinePage from './pages/TimelinePage';
 import ChatPage from './pages/ChatPage';
+import AdminPage from './pages/AdminPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -21,6 +22,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function RootRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+}
+
 function App() {
   return (
     <Routes>
@@ -34,7 +43,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route
         path="/upload"
         element={
@@ -56,6 +65,14 @@ function App() {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPage />
           </ProtectedRoute>
         }
       />

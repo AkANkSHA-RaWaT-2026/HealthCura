@@ -2,21 +2,40 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getMyDocuments } from '../services/documentService';
-
-const upcomingFeatures = [
-  { name: 'Ask HealthCura', description: 'Chat with your medical records' },
-  { name: 'Discharge Summary', description: 'Generate a summary for your next visit' },
-];
+import { downloadDischargeSummary } from '../services/dischargeService';
 
 function DashboardPage() {
   const { user, logoutUser } = useAuth();
   const [documentCount, setDocumentCount] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
 
   useEffect(() => {
     getMyDocuments()
       .then((docs) => setDocumentCount(docs.length))
       .catch(() => setDocumentCount(0));
   }, []);
+
+  const handleDownloadSummary = async () => {
+    setIsDownloading(true);
+    setDownloadError('');
+    try {
+      const pdfBlob = await downloadDischargeSummary();
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'HealthCura_Summary.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setDownloadError(detail || 'Unable to generate summary. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const firstName = user?.full_name?.split(' ')[0];
   const hour = new Date().getHours();
@@ -77,21 +96,19 @@ function DashboardPage() {
           <p className="text-sm text-ink-muted">Chat with your medical records</p>
         </Link>
 
-        <div className="mt-6 space-y-px">
-          {upcomingFeatures.map((feature) => (
-            <div
-              key={feature.name}
-              className="flex justify-between items-center py-4 px-6 bg-surface/50"
-            >
-              <div>
-                <p className="text-ink-muted font-medium">{feature.name}</p>
-                <p className="text-sm text-ink-muted/70">{feature.description}</p>
-              </div>
-              <span className="text-xs text-ink-muted/60 border border-line rounded px-2 py-1">
-                Not yet available
-              </span>
-            </div>
-          ))}
+        <div className="bg-surface border border-line rounded-lg p-6 mt-4">
+          <h2 className="font-serif text-xl text-ink mb-1">Discharge Summary</h2>
+          <p className="text-sm text-ink-muted mb-3">
+            Download an AI-generated summary of your health records
+          </p>
+          <button
+            onClick={handleDownloadSummary}
+            disabled={isDownloading}
+            className="text-sm text-teal hover:text-teal-deep disabled:opacity-50"
+          >
+            {isDownloading ? 'Generating PDF...' : 'Download summary'}
+          </button>
+          {downloadError && <p className="text-sm text-red-700 mt-2">{downloadError}</p>}
         </div>
       </div>
     </div>
