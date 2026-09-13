@@ -107,7 +107,8 @@ async def upload_document(
         db.add(health_record)
     db.commit()
 
-        # Chunk and embed the document text for RAG chat retrieval
+   
+    # Chunk and embed the document text for RAG chat retrieval
     if extracted_text and extracted_text.strip():
         chunks = chunk_text(extracted_text)
         if chunks:
@@ -123,7 +124,7 @@ async def upload_document(
             db.commit()
 
     return new_document
-    return new_document
+    
 
     
 
