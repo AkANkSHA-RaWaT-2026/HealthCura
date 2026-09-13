@@ -7,9 +7,7 @@ load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Small/fast model - used for quick, interactive requests (Summary, Chat)
 FAST_MODEL = "openai/gpt-oss-20b"
-# Larger model - used for one-time, quality-matters generation (Discharge Summary)
 QUALITY_MODEL = "openai/gpt-oss-120b"
 
 
@@ -29,33 +27,57 @@ def _call_groq(model: str, prompt: str, max_tokens: int = 1000) -> str:
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
-        temperature=0.3,  # lower = more consistent/factual, less creative - important for medical content
+        temperature=0.3,
     )
     return response.choices[0].message.content
 
 
-def generate_medical_summary(ocr_text: str) -> str:
+DOCUMENT_TYPES = [
+    "Lab Report", "Prescription", "Discharge Summary", "Radiology Report",
+    "Pathology Report", "Consultation Note", "Vaccination Record",
+    "Medical Certificate", "Other",
+]
+
+
+def generate_medical_summary(ocr_text: str) -> dict:
     """
-    Takes raw OCR text from a medical document and returns a
-    plain-language summary a patient can understand.
+    Takes raw OCR text from a medical document and returns a dict with
+    a plain-language summary and a best-guess document type classification.
     """
     if not ocr_text or not ocr_text.strip():
         raise ValueError("Cannot summarize empty document text.")
 
+    type_list = ", ".join(DOCUMENT_TYPES)
     prompt = f"""You are a medical assistant helping a patient understand their document.
-Summarize the following medical document in simple, plain language a non-medical
-person can understand. Explain any medical terms. Keep it concise - 3 to 5 sentences.
+
+First, classify this document as exactly one of these types: {type_list}
+Then summarize it in simple, plain language a non-medical person can understand.
+Explain any medical terms. Keep the summary concise - 3 to 5 sentences.
 Do not give medical advice or recommendations - only explain what the document says.
 
 Document text:
 {ocr_text}
 
-Plain-language summary:"""
+Respond in exactly this format:
+TYPE: <one of the document types listed above>
+SUMMARY: <your plain-language summary>"""
 
     try:
-        return _call_groq(FAST_MODEL, prompt, max_tokens=400)
+        raw_response = _call_groq(FAST_MODEL, prompt, max_tokens=500)
     except Exception as e:
         raise RuntimeError(f"Failed to generate summary: {str(e)}")
+
+    document_type = "Other"
+    summary = raw_response.strip()
+
+    if "TYPE:" in raw_response and "SUMMARY:" in raw_response:
+        type_part = raw_response.split("TYPE:")[1].split("SUMMARY:")[0].strip()
+        summary_part = raw_response.split("SUMMARY:")[1].strip()
+        if type_part in DOCUMENT_TYPES:
+            document_type = type_part
+        summary = summary_part
+
+    return {"document_type": document_type, "summary": summary}
 
 
 def generate_discharge_summary(patient_name: str, documents_context: str) -> str:
@@ -75,6 +97,14 @@ Using the document excerpts below, write a structured summary with these section
 2. Key Findings - notable test results or observations, including anything outside normal ranges
 3. Current Status - overall picture based on available records
 4. Follow-up Notes - any follow-up instructions or recommendations mentioned in the documents
+
+IMPORTANT FORMATTING RULES:
+- Write in plain text only. Do NOT use Markdown syntax of any kind.
+- Do NOT use asterisks for bold (**text**), pound signs for headings (###), pipe characters
+  for tables (| | |), or dashes for horizontal rules (---).
+- For section headings, just write the section name plainly on its own line (e.g. "Overview").
+- For lists, use simple dashes or plain sentences, not tables.
+- Use only standard ASCII punctuation - plain hyphens (-), not special dashes.
 
 Do not invent information not present in the documents. Do not give new medical advice -
 only organize and summarize what the documents actually say. If information for a section

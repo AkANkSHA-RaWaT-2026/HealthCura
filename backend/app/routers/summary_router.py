@@ -35,14 +35,15 @@ def generate_summary(
         )
 
     try:
-        summary = generate_medical_summary(document.ocr_text)
+        result = generate_medical_summary(document.ocr_text)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Unable to generate summary right now. Please try again.",
         )
 
-    document.ai_summary = summary
+    document.ai_summary = result["summary"]
+    document.document_type = result["document_type"]
     db.commit()
     db.refresh(document)
 

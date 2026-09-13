@@ -7,11 +7,39 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 
 
+def _sanitize_text(text: str) -> str:
+    """
+    Replaces 'smart' Unicode punctuation (often produced by LLMs) with
+    plain ASCII equivalents. ReportLab's default fonts can render these
+    incorrectly as garbled characters otherwise.
+    """
+    replacements = {
+        "\u2013": "-",    # en dash
+        "\u2014": "--",   # em dash
+        "\u2011": "-",    # non-breaking hyphen
+        "\u2012": "-",    # figure dash
+        "\u2015": "--",   # horizontal bar
+        "\u2018": "'",    # left single quote
+        "\u2019": "'",    # right single quote
+        "\u201c": '"',    # left double quote
+        "\u201d": '"',    # right double quote
+        "\u2044": "/",    # fraction slash
+        "\u2212": "-",    # minus sign
+        "\u2264": "<=",   # less-than-or-equal
+        "\u2265": ">=",   # greater-than-or-equal
+        "\u00a0": " ",    # non-breaking space
+    }
+    for bad_char, good_char in replacements.items():
+        text = text.replace(bad_char, good_char)
+    return text
+
 def build_discharge_pdf(patient_name: str, patient_email: str, summary_text: str) -> str:
     """
     Builds a PDF from the AI-generated discharge summary text.
     Returns the path to the generated PDF (saved to a temp file).
     """
+    summary_text = _sanitize_text(summary_text)
+
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     tmp_path = tmp_file.name
     tmp_file.close()
@@ -63,6 +91,12 @@ def build_discharge_pdf(patient_name: str, patient_email: str, summary_text: str
     for line in summary_text.split("\n"):
         line = line.strip()
         if not line:
+            continue
+
+        line = line.lstrip("#").strip()
+        line = line.replace("**", "").replace("*", "")
+        line = line.replace("|", " ")
+        if set(line) <= {"-", " "}:
             continue
 
         stripped_line = line.strip("0123456789. ")
