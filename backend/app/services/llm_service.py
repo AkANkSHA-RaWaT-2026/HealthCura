@@ -1,7 +1,10 @@
 import os
-from groq import Groq
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 from dotenv import load_dotenv
+from groq import Groq
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from app.services.text_cleaner import clean_markdown
 
 load_dotenv()
 
@@ -10,10 +13,15 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 FAST_MODEL = "openai/gpt-oss-20b"
 QUALITY_MODEL = "openai/gpt-oss-120b"
 
+DOCUMENT_TYPES = [
+    "Lab Report", "Prescription", "Discharge Summary", "Radiology Report",
+    "Pathology Report", "Consultation Note", "Vaccination Record",
+    "Medical Certificate", "Other",
+]
+
 
 class GroqRateLimitError(Exception):
     """Raised when Groq returns a 429 after all retries are exhausted."""
-    pass
 
 
 @retry(
@@ -22,7 +30,7 @@ class GroqRateLimitError(Exception):
     retry=retry_if_exception_type(Exception),
 )
 def _call_groq(model: str, prompt: str, max_tokens: int = 1000) -> str:
-    """Internal helper - sends a prompt to Groq, retries on transient failures."""
+    """Sends a prompt to Groq and returns the raw text. Retries on failure."""
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -32,17 +40,11 @@ def _call_groq(model: str, prompt: str, max_tokens: int = 1000) -> str:
     return response.choices[0].message.content
 
 
-DOCUMENT_TYPES = [
-    "Lab Report", "Prescription", "Discharge Summary", "Radiology Report",
-    "Pathology Report", "Consultation Note", "Vaccination Record",
-    "Medical Certificate", "Other",
-]
-
-
 def generate_medical_summary(ocr_text: str) -> dict:
     """
-    Takes raw OCR text from a medical document and returns a dict with
-    a plain-language summary and a best-guess document type classification.
+    Takes raw OCR text and returns a dict with a document type and a
+    plain-language summary. Markdown is removed before parsing, so
+    labels like "**TYPE:**" are still found.
     """
     if not ocr_text or not ocr_text.strip():
         raise ValueError("Cannot summarize empty document text.")
@@ -67,12 +69,14 @@ SUMMARY: <your plain-language summary>"""
     except Exception as e:
         raise RuntimeError(f"Failed to generate summary: {str(e)}")
 
-    document_type = "Other"
-    summary = raw_response.strip()
+    cleaned_response = clean_markdown(raw_response)
 
-    if "TYPE:" in raw_response and "SUMMARY:" in raw_response:
-        type_part = raw_response.split("TYPE:")[1].split("SUMMARY:")[0].strip()
-        summary_part = raw_response.split("SUMMARY:")[1].strip()
+    document_type = "Other"
+    summary = cleaned_response
+
+    if "TYPE:" in cleaned_response and "SUMMARY:" in cleaned_response:
+        type_part = cleaned_response.split("TYPE:")[1].split("SUMMARY:")[0].strip()
+        summary_part = cleaned_response.split("SUMMARY:")[1].strip()
         if type_part in DOCUMENT_TYPES:
             document_type = type_part
         summary = summary_part
@@ -83,8 +87,8 @@ SUMMARY: <your plain-language summary>"""
 def generate_discharge_summary(patient_name: str, documents_context: str) -> str:
     """
     Generates a structured discharge-style summary from a patient's
-    combined document history. Uses the larger/quality model since this
-    is generated once and read carefully, not an interactive request.
+    document history. Uses the larger model because it is generated
+    once and read carefully.
     """
     if not documents_context or not documents_context.strip():
         raise ValueError("No document data available to generate a summary.")
@@ -116,6 +120,8 @@ Document excerpts:
 Structured summary:"""
 
     try:
-        return _call_groq(QUALITY_MODEL, prompt, max_tokens=1200)
+        raw_summary = _call_groq(QUALITY_MODEL, prompt, max_tokens=1200)
     except Exception as e:
         raise RuntimeError(f"Failed to generate discharge summary: {str(e)}")
+
+    return clean_markdown(raw_summary)

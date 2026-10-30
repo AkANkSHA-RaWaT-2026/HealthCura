@@ -2,8 +2,9 @@ import re
 from datetime import datetime
 from typing import Optional
 
-# Flexible separator: matches whitespace, colons, dashes, parentheses -
-# handles "Glucose: 110", "Glucose (Total) 110", "Glucose\n110" etc.
+from app.services.fuzzy_lab_parser import extract_lab_values
+
+# Flexible separator: matches whitespace, colons, dashes, parentheses
 SEP = r"[\s():\-]*"
 
 # Each pattern: (metric_name, regex, default_unit)
@@ -34,7 +35,7 @@ DATE_PATTERNS = [
 
 
 def extract_document_date(text: str) -> Optional[str]:
-    """Attempts to find a date in the document text. Returns ISO date string or None."""
+    """Finds the first date in the text and returns it as an ISO string, or None."""
     for pattern in DATE_PATTERNS:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
@@ -49,10 +50,8 @@ def extract_document_date(text: str) -> Optional[str]:
 
 def extract_health_metrics(ocr_text: str) -> list[dict]:
     """
-    Scans OCR text for known medical metric patterns and returns a list of
-    extracted metrics. Best-effort pattern matching - real documents vary
-    widely in format, and OCR errors/typos in the source will cause some
-    metrics to be missed. This is an expected, documented limitation.
+    Returns metrics found in the OCR text. Exact regex matches come first.
+    Fuzzy matches are added only for tests the regex did not find.
     """
     if not ocr_text:
         return []
@@ -78,5 +77,10 @@ def extract_health_metrics(ocr_text: str) -> list[dict]:
                 "unit": unit,
                 "recorded_date": document_date,
             })
+
+    found_names = {result["metric_name"] for result in results}
+    for lab_value in extract_lab_values(ocr_text):
+        if lab_value["metric_name"] not in found_names:
+            results.append({**lab_value, "recorded_date": document_date})
 
     return results
