@@ -308,6 +308,16 @@ function UploadPage() {
                       </button>
                     </div>
 
+                    {doc.document_type === 'Other' && (
+                      <div className="mt-5 rounded-xl bg-gold-soft px-4 py-3">
+                        <p className="text-sm text-ink">
+                          We couldn't read any supported blood test values in this document.
+                          Try a clearer photo or scan. The document is still stored and can be
+                          searched in chat.
+                        </p>
+                      </div>
+                    )}
+
                     {summaryText ? (
                       <div className="mt-5 relative bg-paper rounded-xl pl-5 pr-4 py-4">
                         <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-teal" />
