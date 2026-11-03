@@ -19,7 +19,10 @@ from app.models.health_record import HealthRecord
 from app.models.user import User
 from app.schemas.document_schema import DocumentResponse
 from app.services.blood_report_parser import parse_blood_report
-from app.services.cloudinary_service import upload_file_to_cloudinary
+from app.services.cloudinary_service import (
+    delete_file_from_cloudinary,
+    upload_file_to_cloudinary,
+)
 from app.services.embedding_service import chunk_text, embed_texts
 from app.services.ocr_service import extract_text_from_image_path, extract_text_from_pdf
 from starlette.concurrency import run_in_threadpool
@@ -287,7 +290,10 @@ def delete_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Deletes one document and its health records and chunks, only if the user owns it."""
+    """
+    Deletes one document, its health records and chunks, and its Cloudinary file.
+    The database is cleaned first. A failed Cloudinary delete is logged, not shown to the user.
+    """
     document = (
         db.query(Document)
         .filter(Document.id == document_id, Document.user_id == current_user.id)
@@ -299,6 +305,8 @@ def delete_document(
             detail="Document not found.",
         )
 
+    file_url = document.file_url
+
     try:
         db.delete(document)
         db.commit()
@@ -309,3 +317,8 @@ def delete_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to delete the document. Please try again.",
         )
+
+    try:
+        delete_file_from_cloudinary(file_url)
+    except Exception:
+        logger.exception("Cloudinary delete failed for document %s", document_id)
