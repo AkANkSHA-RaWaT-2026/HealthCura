@@ -155,3 +155,6 @@ def test_empty_text_returns_other_with_no_rows():
 
     assert result["document_type"] == "Other"
     assert result["rows"] == []
+
+def test_word_containing_clinic_is_not_a_lab_name():
+    assert extract_lab_name("Correlate Clinically as all results") is None

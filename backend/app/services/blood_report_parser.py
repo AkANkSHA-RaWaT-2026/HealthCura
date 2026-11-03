@@ -49,7 +49,7 @@ LABEL_LOOKAHEAD_CHARS = 80  # the date may sit on the next line after the label
 MONTH_OCR_FIXES = {"vsy": 5, "mav": 5, "msy": 5}
 
 LAB_PATTERN = re.compile(
-    r"([A-Za-z][A-Za-z.&' -]{2,40}?\s(?:clinic|laboratory|laboratories|hospital|medical cent(?:re|er)))",
+    r"([A-Za-z][A-Za-z.&' -]{2,40}?\s(?:clinic|laboratory|laboratories|hospital|medical cent(?:re|er)))\b",
     re.IGNORECASE,
 )
 PANEL_PATTERNS = [
@@ -290,3 +290,4 @@ def parse_blood_report(ocr_text: str | None) -> dict:
         "panel_name": panel_name,
         "rows": rows,
     }
+
