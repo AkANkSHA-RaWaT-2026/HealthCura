@@ -37,11 +37,16 @@ STANDARD_THOUSANDS = re.compile(r"(\d),(\d{3})\b")
 
 NUMERIC_DATE = re.compile(r"(\d{1,2})[/-](\d{1,2})[/-]?(\d{4,5})")
 MONTH_NAME_DATE = re.compile(r"(\d{1,2})[\s/-]*([a-z]{3,9})[\s/-]*(\d{4})", re.IGNORECASE)
-REPORT_DATE_LABEL = re.compile(r"report\s*date\s*[:\-]?\s*(.{0,30})", re.IGNORECASE)
 MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
     "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
 }
+# OCR often misreads "Report" (for example "Repor", "Rcported", "Aepon").
+# The label is followed by "Date" or "On", and the date is read after it.
+REPORT_DATE_LABEL = re.compile(r"(?:rep|rcp|aep)\w{0,8}\s+(?:date|on)\b", re.IGNORECASE)
+LABEL_LOOKAHEAD_CHARS = 80  # the date may sit on the next line after the label
+# Month names that OCR misreads so badly that the normal lookup cannot match them
+MONTH_OCR_FIXES = {"vsy": 5, "mav": 5, "msy": 5}
 
 LAB_PATTERN = re.compile(
     r"([A-Za-z][A-Za-z.&' -]{2,40}?\s(?:clinic|laboratory|laboratories|hospital|medical cent(?:re|er)))",
@@ -64,6 +69,14 @@ def _build_date(day: int, month: int, year: int) -> date | None:
         return None
 
 
+def _month_number(word: str) -> int | None:
+    """Returns the month number for a month name, including known OCR misreadings."""
+    key = word.lower()
+    if key[:3] in MONTHS:
+        return MONTHS[key[:3]]
+    return MONTH_OCR_FIXES.get(key)
+
+
 def _first_valid_date(text: str) -> date | None:
     """
     Returns the first valid date in the text. Numeric dates are read as
@@ -76,7 +89,7 @@ def _first_valid_date(text: str) -> date | None:
             return found
 
     for match in MONTH_NAME_DATE.finditer(text):
-        month_number = MONTHS.get(match.group(2)[:3].lower())
+        month_number = _month_number(match.group(2))
         if month_number is None:
             continue
         found = _build_date(int(match.group(1)), month_number, int(match.group(3)))
@@ -87,12 +100,15 @@ def _first_valid_date(text: str) -> date | None:
 
 def extract_report_date(ocr_text: str) -> date | None:
     """
-    Returns the report date. The date printed after "Report Date" is preferred,
+    Returns the report date. A date found just after a "Report" label is preferred,
     because a report also prints other dates, such as the collection date.
+    Falls back to the first valid date in the text.
     """
     label = REPORT_DATE_LABEL.search(ocr_text)
     if label:
-        found = _first_valid_date(label.group(1))
+        start = label.end()
+        window = ocr_text[start:start + LABEL_LOOKAHEAD_CHARS]
+        found = _first_valid_date(window)
         if found:
             return found
     return _first_valid_date(ocr_text)
