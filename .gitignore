@@ -12,3 +12,20 @@ dist/
 # OS
 .DS_Store.vscode/
 .vscode/
+
+# Backend scratch files: OCR dumps and sample images may contain real patient data
+backend/ocr_*.txt
+backend/*.png
+backend/*.jpg
+backend/*.jpeg
+
+# Backend debug scripts (to be moved into backend/scripts/ later)
+backend/debug_report_parse.py
+backend/compare_ocr_versions.py
+backend/compare_ocr_variants.py
+backend/convert_to_png.py
+backend/check_file_type.py
+
+# Test cache
+.pytest_cache/
+__pycache__/
