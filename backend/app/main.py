@@ -1,13 +1,24 @@
+"""HealthCura FastAPI application entry point.
+
+Run from the backend folder with: uvicorn app.main:app --reload
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth_router, document_router, summary_router
-from app.routers import auth_router, document_router, summary_router, timeline_router, chat_router, discharge_router, admin_router
 
+from app.routers import (
+    auth_router,
+    chat_router,
+    discharge_router,
+    document_router,
+    summary_router,
+    timeline_router,
+)
 
 app = FastAPI(
     title="HealthCura API",
     description="Medical Document Intelligence System - Backend API",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 app.include_router(auth_router.router)
@@ -16,7 +27,6 @@ app.include_router(summary_router.router)
 app.include_router(timeline_router.router)
 app.include_router(chat_router.router)
 app.include_router(discharge_router.router)
-app.include_router(admin_router.router)
 
 # Allows the React dev server (different port) to call this API
 app.add_middleware(
@@ -27,10 +37,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def read_root():
+    """Confirms the API is running."""
     return {"message": "HealthCura API is running", "status": "ok"}
+
 
 @app.get("/health")
 def health_check():
+    """Simple health check for monitoring."""
     return {"status": "healthy"}
