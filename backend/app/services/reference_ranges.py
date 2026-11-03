@@ -32,7 +32,7 @@ METRICS = (
     ),
     MetricDefinition(
         "Hematocrit", CBC, "%",
-        ("hematocrit", "haematocrit", "hct"),
+        ("hematocrit", "haematocrit", "hct", "pcv"),
         (38.0, 50.0), (15.0, 65.0),
     ),
     MetricDefinition("RBC", CBC, "x10^6/uL", ("rbc",), (4.5, 5.9), (1.0, 10.0)),

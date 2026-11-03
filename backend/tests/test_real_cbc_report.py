@@ -94,3 +94,7 @@ def test_report_date_prefers_the_report_date_label():
 
 def test_month_name_date_is_read():
     assert extract_report_date("Date 07 Nov 2021") == date(2021, 11, 7)
+
+def test_pcv_is_read_as_hematocrit():
+    row = rows_by_name(parse_blood_report("Packed Cell Volume (PCV) 43.5 % 40.0 - 50.0"))["Hematocrit"]
+    assert row["value"] == 43.5
