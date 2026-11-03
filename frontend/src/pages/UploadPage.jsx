@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { uploadDocument, getMyDocuments, generateSummary, deleteDocument } from '../services/documentService';
+import {
+  uploadDocument,
+  getMyDocuments,
+  generateSummary,
+  deleteDocument,
+} from '../services/documentService';
+import { getSavedSummary } from '../services/summaryService';
 
-const ALLOWED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf'];
+const ALLOWED_TYPES = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
 const MAX_SIZE_MB = 10;
 
 const KEYFRAMES = `
@@ -66,13 +72,16 @@ function SpecimenSlide({ active }) {
   );
 }
 
+/** Returns the file extension in uppercase, or "FILE" if the name has none. */
 function fileTypeLabel(filename) {
-  const extension = filename.split('.').pop()?.toUpperCase();
+  const parts = (filename || '').split('.');
+  const extension = parts.length > 1 ? parts.pop().toUpperCase() : '';
   return extension || 'FILE';
 }
 
 function UploadPage() {
   const [documents, setDocuments] = useState([]);
+  const [summaries, setSummaries] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -81,10 +90,27 @@ function UploadPage() {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
+  /** Loads the saved summary (with flagged results) for each document that has one. */
+  const loadSavedSummaries = async (docs) => {
+    const documentsWithSummary = docs.filter((doc) => doc.ai_summary);
+    const results = await Promise.allSettled(
+      documentsWithSummary.map((doc) => getSavedSummary(doc.id))
+    );
+
+    const nextSummaries = {};
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        nextSummaries[documentsWithSummary[index].id] = result.value;
+      }
+    });
+    setSummaries(nextSummaries);
+  };
+
   const loadDocuments = async () => {
     try {
       const docs = await getMyDocuments();
       setDocuments(docs);
+      await loadSavedSummaries(docs);
     } catch {
       setError('Unable to load your documents.');
     } finally {
@@ -128,12 +154,18 @@ function UploadPage() {
     processFile(event.dataTransfer.files[0]);
   };
 
+  /**
+   * Generates the summary on the server, then reloads the document list.
+   * The response is stored separately, because it is a summary, not a document.
+   */
   const handleGenerateSummary = async (documentId) => {
     setError('');
     setGeneratingId(documentId);
     try {
-      const updatedDoc = await generateSummary(documentId);
-      setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? updatedDoc : doc)));
+      const result = await generateSummary(documentId);
+      setSummaries((prev) => ({ ...prev, [documentId]: result }));
+      const docs = await getMyDocuments();
+      setDocuments(docs);
     } catch (err) {
       const detail = err.response?.data?.detail;
       setError(detail || 'Unable to generate summary.');
@@ -149,6 +181,11 @@ function UploadPage() {
     try {
       await deleteDocument(documentId);
       setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+      setSummaries((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
     } catch (err) {
       const detail = err.response?.data?.detail;
       setError(detail || 'Unable to delete document.');
@@ -201,7 +238,7 @@ function UploadPage() {
               </p>
             </div>
             <p className="text-sm text-ink-muted mt-2">
-              Lab reports and prescriptions · JPG, PNG, PDF · Max {MAX_SIZE_MB}MB
+              Lab reports and prescriptions · JPG, PNG, WebP, PDF · Max {MAX_SIZE_MB}MB
             </p>
           </div>
 
@@ -232,63 +269,94 @@ function UploadPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {documents.map((doc, index) => (
-                <article
-                  key={doc.id}
-                  className="fade-up bg-surface border border-line rounded-2xl p-6 hover:shadow-lg hover:shadow-teal/5 transition duration-300"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="shrink-0 w-12 h-14 rounded-lg bg-teal/10 border border-teal/15 flex flex-col items-center justify-center">
-                        <span className="text-[10px] font-semibold tracking-wider text-teal">
-                          {fileTypeLabel(doc.original_filename)}
-                        </span>
-                        <span className="mt-1 w-5 h-px bg-gold" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-ink font-medium truncate">{doc.original_filename}</p>
-                        <p className="text-xs text-ink-muted mt-0.5">
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
+              {documents.map((doc, index) => {
+                const summary = summaries[doc.id];
+                const summaryText = summary?.summary || doc.ai_summary;
+                const flagged = summary?.flagged || [];
 
-                    <button
-                      onClick={() => handleDelete(doc.id)}
-                      disabled={deletingId === doc.id}
-                      className="shrink-0 text-xs text-ink-muted hover:text-red-700 px-3 py-1.5 rounded-full hover:bg-red-50 transition disabled:opacity-50"
-                    >
-                      {deletingId === doc.id ? 'Deleting...' : 'Delete'}
-                    </button>
-                  </div>
+                return (
+                  <article
+                    key={doc.id}
+                    className="fade-up bg-surface border border-line rounded-2xl p-6 hover:shadow-lg hover:shadow-teal/5 transition duration-300"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="shrink-0 w-12 h-14 rounded-lg bg-teal/10 border border-teal/15 flex flex-col items-center justify-center">
+                          <span className="text-[10px] font-semibold tracking-wider text-teal">
+                            {fileTypeLabel(doc.original_filename)}
+                          </span>
+                          <span className="mt-1 w-5 h-px bg-gold" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-ink font-medium truncate">
+                            {doc.original_filename || 'Untitled document'}
+                          </p>
+                          <p className="text-xs text-ink-muted mt-0.5">
+                            {doc.document_type && <span className="mr-2">{doc.document_type}</span>}
+                            {doc.created_at && new Date(doc.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
 
-                  {doc.ai_summary ? (
-                    <div className="mt-5 relative bg-paper rounded-xl pl-5 pr-4 py-4">
-                      <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-teal" />
-                      <p className="text-xs font-semibold tracking-wide text-teal mb-2">AI summary</p>
-                      <p className="text-sm text-ink leading-relaxed">{doc.ai_summary}</p>
-                    </div>
-                  ) : (
-                    <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-dashed border-line px-4 py-3">
-                      <p className="text-sm text-ink-muted">No summary yet for this document.</p>
                       <button
-                        onClick={() => handleGenerateSummary(doc.id)}
-                        disabled={generatingId === doc.id}
-                        className="shrink-0 bg-teal text-white text-sm px-4 py-2 rounded-full font-medium hover:bg-teal-deep transition disabled:opacity-50"
+                        onClick={() => handleDelete(doc.id)}
+                        disabled={deletingId === doc.id}
+                        className="shrink-0 text-xs text-ink-muted hover:text-red-700 px-3 py-1.5 rounded-full hover:bg-red-50 transition disabled:opacity-50"
                       >
-                        {generatingId === doc.id ? 'Generating...' : 'Generate summary'}
+                        {deletingId === doc.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
-                  )}
 
-                  {doc.ocr_text && !doc.ai_summary && (
-                    <p className="text-sm text-ink-muted mt-3 line-clamp-2">
-                      {doc.ocr_text.slice(0, 180)}
-                    </p>
-                  )}
-                </article>
-              ))}
+                    {summaryText ? (
+                      <div className="mt-5 relative bg-paper rounded-xl pl-5 pr-4 py-4">
+                        <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-teal" />
+                        <p className="text-xs font-semibold tracking-wide text-teal mb-2">AI summary</p>
+                        <p className="text-sm text-ink leading-relaxed">{summaryText}</p>
+
+                        {flagged.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-xs font-semibold tracking-wide text-coral mb-2">
+                              Outside the reference range
+                            </p>
+                            <ul className="space-y-1.5">
+                              {flagged.map((item) => (
+                                <li key={item} className="text-sm text-ink flex gap-2">
+                                  <span className="text-coral">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {summary?.disclaimer && (
+                          <p className="mt-4 text-xs text-ink-muted leading-relaxed">
+                            {summary.disclaimer}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-dashed border-line px-4 py-3">
+                        <p className="text-sm text-ink-muted">No summary yet for this document.</p>
+                        <button
+                          onClick={() => handleGenerateSummary(doc.id)}
+                          disabled={generatingId === doc.id}
+                          className="shrink-0 bg-teal text-white text-sm px-4 py-2 rounded-full font-medium hover:bg-teal-deep transition disabled:opacity-50"
+                        >
+                          {generatingId === doc.id ? 'Generating...' : 'Generate summary'}
+                        </button>
+                      </div>
+                    )}
+
+                    {doc.ocr_text && !summaryText && (
+                      <p className="text-sm text-ink-muted mt-3 line-clamp-2">
+                        {doc.ocr_text.slice(0, 180)}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
