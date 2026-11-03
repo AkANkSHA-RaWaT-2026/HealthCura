@@ -1,11 +1,12 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
 
 
 class Document(Base):
-    """Represents an uploaded medical document (lab report, prescription, etc.)."""
+    """An uploaded medical document, such as a lab report or prescription."""
 
     __tablename__ = "documents"
 
@@ -20,7 +21,13 @@ class Document(Base):
     ocr_text = Column(Text, nullable=True)
     ai_summary = Column(Text, nullable=True)
 
+    # "Blood Test Report" or "Other", set after classification
     document_type = Column(String, nullable=True)
+
+    # Header details printed on the report
+    report_date = Column(Date, nullable=True)
+    lab_name = Column(String, nullable=True)  # display only
+    panel_name = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

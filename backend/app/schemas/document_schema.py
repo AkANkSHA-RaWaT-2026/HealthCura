@@ -1,10 +1,14 @@
-from pydantic import BaseModel
-from datetime import datetime
+"""Response shape for documents returned to the frontend."""
+
+from datetime import date, datetime
 from typing import Optional
+
+from pydantic import BaseModel
 
 
 class DocumentResponse(BaseModel):
-    """Document data returned to the frontend."""
+    """A document with its OCR text, summary, and blood report header fields."""
+
     id: int
     original_filename: str
     file_url: str
@@ -13,6 +17,9 @@ class DocumentResponse(BaseModel):
     ocr_text: Optional[str] = None
     ai_summary: Optional[str] = None
     document_type: Optional[str] = None
+    report_date: Optional[date] = None
+    lab_name: Optional[str] = None
+    panel_name: Optional[str] = None
     created_at: datetime
 
     class Config:
