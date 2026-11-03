@@ -1,3 +1,5 @@
+"""Calls the Groq language model for blood report wording and discharge summaries."""
+
 import os
 
 from dotenv import load_dotenv
@@ -13,15 +15,9 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 FAST_MODEL = "openai/gpt-oss-20b"
 QUALITY_MODEL = "openai/gpt-oss-120b"
 
-DOCUMENT_TYPES = [
-    "Lab Report", "Prescription", "Discharge Summary", "Radiology Report",
-    "Pathology Report", "Consultation Note", "Vaccination Record",
-    "Medical Certificate", "Other",
-]
-
-
-class GroqRateLimitError(Exception):
-    """Raised when Groq returns a 429 after all retries are exhausted."""
+# gpt-oss models spend part of this budget on hidden reasoning, so the
+# visible summary needs enough room left over to be written.
+BLOOD_SUMMARY_MAX_TOKENS = 1000
 
 
 @retry(
@@ -30,58 +26,45 @@ class GroqRateLimitError(Exception):
     retry=retry_if_exception_type(Exception),
 )
 def _call_groq(model: str, prompt: str, max_tokens: int = 1000) -> str:
-    """Sends a prompt to Groq and returns the raw text. Retries on failure."""
+    """Sends a prompt to Groq and returns the reply text. Returns "" if the reply is empty."""
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
-        temperature=0.3,
+        temperature=0.2,
     )
-    return response.choices[0].message.content
+    return response.choices[0].message.content or ""
 
 
-def generate_medical_summary(ocr_text: str) -> dict:
+def generate_blood_summary_text(facts: list[str]) -> str:
     """
-    Takes raw OCR text and returns a dict with a document type and a
-    plain-language summary. Markdown is removed before parsing, so
-    labels like "**TYPE:**" are still found.
+    Writes a short summary from a list of verified facts.
+    The model may only restate these facts. The summary service checks its output.
     """
-    if not ocr_text or not ocr_text.strip():
-        raise ValueError("Cannot summarize empty document text.")
+    if not facts:
+        raise ValueError("No facts were provided for the summary.")
 
-    type_list = ", ".join(DOCUMENT_TYPES)
-    prompt = f"""You are a medical assistant helping a patient understand their document.
+    fact_lines = "\n".join(f"- {fact}" for fact in facts)
+    prompt = f"""You are writing a short factual summary of a blood test report for a patient.
 
-First, classify this document as exactly one of these types: {type_list}
-Then summarize it in simple, plain language a non-medical person can understand.
-Explain any medical terms. Keep the summary concise - 3 to 5 sentences.
-Do not give medical advice or recommendations - only explain what the document says.
+Use ONLY the facts listed below. Copy every number exactly as written.
+Write 3 to 5 plain sentences. Name the tests that were done, give their values,
+and say which results are outside their reference range.
 
-Document text:
-{ocr_text}
+Rules:
+- Do not explain what any result means for the patient.
+- Do not give advice, diagnoses, or next steps.
+- Do not use the words: should, recommend, consult, risk, suggest, diagnose.
+- Do not mention dates, doctors, or clinics.
+- Write plain text. No markdown, bullets, or headings.
 
-Respond in exactly this format:
-TYPE: <one of the document types listed above>
-SUMMARY: <your plain-language summary>"""
+Facts:
+{fact_lines}
 
-    try:
-        raw_response = _call_groq(FAST_MODEL, prompt, max_tokens=500)
-    except Exception as e:
-        raise RuntimeError(f"Failed to generate summary: {str(e)}")
+Summary:"""
 
-    cleaned_response = clean_markdown(raw_response)
-
-    document_type = "Other"
-    summary = cleaned_response
-
-    if "TYPE:" in cleaned_response and "SUMMARY:" in cleaned_response:
-        type_part = cleaned_response.split("TYPE:")[1].split("SUMMARY:")[0].strip()
-        summary_part = cleaned_response.split("SUMMARY:")[1].strip()
-        if type_part in DOCUMENT_TYPES:
-            document_type = type_part
-        summary = summary_part
-
-    return {"document_type": document_type, "summary": summary}
+    raw_text = _call_groq(FAST_MODEL, prompt, max_tokens=BLOOD_SUMMARY_MAX_TOKENS)
+    return clean_markdown(raw_text)
 
 
 def generate_discharge_summary(patient_name: str, documents_context: str) -> str:

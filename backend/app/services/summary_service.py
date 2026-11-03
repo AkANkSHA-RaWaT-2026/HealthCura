@@ -30,6 +30,8 @@ OTHER_SUMMARY = (
 )
 
 NUMBER_PATTERN = re.compile(r"\d+(?:\.\d+)?")
+# Unit exponents such as "x10^3" are part of the unit, not a result value
+UNIT_EXPONENT_PATTERN = re.compile(r"x?10\^\d+")
 SENTENCE_BREAK = re.compile(r"[.!?]+(?:\s+|$)")
 # Words that give interpretation or advice, which the summary must not contain
 FORBIDDEN_WORDS = re.compile(
@@ -132,6 +134,10 @@ def count_sentences(text: str) -> int:
     """Counts sentences. A decimal point such as 13.8 does not end a sentence."""
     return len([part for part in SENTENCE_BREAK.split(text.strip()) if part.strip()])
 
+def numbers_in_text(text: str) -> list[str]:
+    """Returns the numbers in the text, ignoring unit exponents such as x10^3."""
+    without_units = UNIT_EXPONENT_PATTERN.sub("", text)
+    return NUMBER_PATTERN.findall(without_units)
 
 def check_ai_summary(text: str, rows: list[dict]) -> str | None:
     """Returns the reason the text is rejected, or None if it passes every check."""
@@ -146,7 +152,7 @@ def check_ai_summary(text: str, rows: list[dict]) -> str | None:
         return "contains interpretation or advice"
 
     allowed = allowed_numbers(rows)
-    for number in NUMBER_PATTERN.findall(text):
+    for number in numbers_in_text(text):
         if not any(abs(float(number) - known) < 1e-9 for known in allowed):
             return f"number {number} is not in the data"
 
