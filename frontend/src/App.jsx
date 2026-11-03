@@ -5,7 +5,6 @@ import { useAuth } from './hooks/useAuth';
 import UploadPage from './pages/UploadPage';
 import TimelinePage from './pages/TimelinePage';
 import ChatPage from './pages/ChatPage';
-import AdminPage from './pages/AdminPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -33,9 +32,6 @@ function RootRedirect() {
     return <LandingPage />;
   }
 
-  if (user.role === 'admin') {
-    return <Navigate to="/admin" replace />;
-  }
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -49,7 +45,6 @@ function App() {
       <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
       <Route path="/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
     </Routes>
   );
 }

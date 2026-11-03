@@ -1,19 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-const patientNavItems = [
+const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/upload', label: 'Documents' },
   { to: '/timeline', label: 'Timeline' },
   { to: '/chat', label: 'Ask HealthCura' },
 ];
 
-const adminNavItems = [{ to: '/admin', label: 'Dashboard' }];
-
 function Layout({ children }) {
   const { user, logoutUser } = useAuth();
   const location = useLocation();
-  const navItems = user?.role === 'admin' ? adminNavItems : patientNavItems;
 
   return (
     <div className="min-h-screen bg-paper flex flex-col">
