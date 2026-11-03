@@ -52,7 +52,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect email or password.",
         )
 
-    access_token = create_access_token(data={"user_id": user.id, "role": user.role})
+    access_token = create_access_token(data={"user_id": user.id})
 
     return Token(access_token=access_token, user=user)
 
