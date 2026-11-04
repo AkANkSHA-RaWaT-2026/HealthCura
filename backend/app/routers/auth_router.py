@@ -24,7 +24,6 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)):
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
         full_name=user_data.full_name,
-        role="patient",
     )
 
     try:
