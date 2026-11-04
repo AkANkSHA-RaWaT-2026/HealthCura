@@ -1,31 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { askQuestion, getChatHistory } from '../services/chatService';
+import { askQuestion } from '../services/chatService';
+import { useChat } from '../hooks/useChat';
 
 function ChatPage() {
-  const [messages, setMessages] = useState([]);
+  const { messages, setMessages } = useChat();
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const history = await getChatHistory();
-        setMessages(history);
-      } catch {
-        setError('Unable to load chat history.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadHistory();
-  }, []);
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setInput('');
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,15 +44,23 @@ function ChatPage() {
 
   return (
     <div className="max-w-2xl mx-auto w-full px-6 py-10 flex flex-col flex-1">
-      <h1 className="font-serif text-2xl text-ink mb-2">Ask HealthCura</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="font-serif text-2xl text-ink">Ask HealthCura</h1>
+        <button
+          type="button"
+          onClick={handleNewChat}
+          disabled={isAsking || messages.length === 0}
+          className="text-sm text-teal hover:text-teal-deep disabled:opacity-40"
+        >
+          New chat
+        </button>
+      </div>
       <p className="text-sm text-ink-muted mb-6">
         Ask questions about your uploaded medical documents.
       </p>
 
       <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-        {isLoading && <p className="text-ink-muted">Loading...</p>}
-
-        {!isLoading && messages.length === 0 && (
+        {messages.length === 0 && (
           <p className="text-ink-muted">
             No messages yet. Ask a question about your health records below.
           </p>
